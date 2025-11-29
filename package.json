@@ -1,0 +1,24 @@
+{
+  "name": "jogosestrategia_spomval",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/passosgabriela/JogosEstrategia_SPOMVAL.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/passosgabriela/JogosEstrategia_SPOMVAL/issues"
+  },
+  "homepage": "https://github.com/passosgabriela/JogosEstrategia_SPOMVAL#readme",
+  "dependencies": {
+    "prompt-sync": "^4.2.0"
+  }
+}

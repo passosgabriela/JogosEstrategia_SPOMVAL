@@ -116,65 +116,68 @@ function estrategiasMistas2x2(A) {
     Retorna null se não encontrar solução válida
 */
 function resolverSuporteDuplo(A, r, s, c, d) {
-    const Ar_c = A[r][c], Ar_d = A[r][d];
-    const As_c = A[s][c], As_d = A[s][d];
+  const Ar_c = A[r][c], Ar_d = A[r][d];
+  const As_c = A[s][c], As_d = A[s][d];
 
-    // Encontrar q_c tal que payoff linha r == payoff linha s
-    const denom_q = (Ar_c - Ar_d) - (As_c - As_d);
-    if (Math.abs(denom_q) < 1e-12) return null;
-    const q_c = (As_d - Ar_d) / denom_q;
-    const q_d = 1 - q_c;
+  // Resolve q (indiferença para X)
+  const denom_q = (Ar_c - Ar_d) - (As_c - As_d);
+  if (Math.abs(denom_q) < 1e-12) return null;
+  const q_c = (As_d - Ar_d) / denom_q;
+  const q_d = 1 - q_c;
 
-    // Encontrar p_r tal que payoff coluna c == payoff coluna d
-    const denom_p = (Ar_c - As_c) - (Ar_d - As_d);
-    if (Math.abs(denom_p) < 1e-12) return null;
-    const p_r = (As_d - As_c) / denom_p;
-    const p_s = 1 - p_r;
+  // Resolve p (indiferença para Y)
+  const denom_p = (Ar_c - As_c) - (Ar_d - As_d);
+  if (Math.abs(denom_p) < 1e-12) return null;
+  const p_r = (As_d - As_c) / denom_p;
+  const p_s = 1 - p_r;
 
-    // Probabilidades válidas (deve estar entre 0 e 1, com tolerância numérica)
-    const okProb =
-        q_c >= -1e-9 && q_c <= 1 + 1e-9 &&
-        q_d >= -1e-9 && q_d <= 1 + 1e-9 &&
-        p_r >= -1e-9 && p_r <= 1 + 1e-9 &&
-        p_s >= -1e-9 && p_s <= 1 + 1e-9;
-    if (!okProb) return null;
+  // Probabilidades válidas?
+  const okProb =
+    q_c >= -1e-9 && q_c <= 1 + 1e-9 &&
+    q_d >= -1e-9 && q_d <= 1 + 1e-9 &&
+    p_r >= -1e-9 && p_r <= 1 + 1e-9 &&
+    p_s >= -1e-9 && p_s <= 1 + 1e-9;
+  if (!okProb) return null;
 
-    // Valor do jogo (deve ser igual nas duas linhas do suporte)
-    const v_r = Ar_c * q_c + Ar_d * q_d;
-    const v_s = As_c * q_c + As_d * q_d;
-    const v = 0.5 * (v_r + v_s); // média para robustez numérica
+  // Valor do jogo
+  const v_r = Ar_c * q_c + Ar_d * q_d;
+  const v_s = As_c * q_c + As_d * q_d;
+  const v = 0.5 * (v_r + v_s);
 
-    // Validar melhor-resposta:
-    const m = A.length, n = A[0].length;
+  const m = A.length, n = A[0].length;
 
-    // X: qualquer linha i fora do suporte não pode ter payoff > v contra q
-    for (let i = 0; i < m; i++) {
-        const payoff_i = A[i][c] * q_c + A[i][d] * q_d;
-        if (payoff_i > v + 1e-8) return null;
-    }
+  // Construção inicial de p (restrito a r,s)
+  const p = Array(m).fill(0);
+  p[r] = Math.max(0, p_r);
+  p[s] = Math.max(0, p_s);
+  const sp = p[r] + p[s];
+  if (sp <= 1e-12) return null;
+  p[r] /= sp; p[s] /= sp;
 
-    // Y: qualquer coluna j fora do suporte não pode ter payoff < v contra p
-    for (let j = 0; j < n; j++) {
-        const payoff_j = p_r * A[r][j] + p_s * A[s][j];
-        if (payoff_j < v - 1e-8) return null;
-    }
+  // Identifica colunas indiferentes contra p
+  const indiferentes = [];
+  for (let j = 0; j < n; j++) {
+    const payoff_j = p.reduce((acc, pi, i) => acc + pi * A[i][j], 0);
+    if (Math.abs(payoff_j - v) < 1e-8) indiferentes.push(j);
+  }
 
-    // Construir vetores completos p e q
-    const p = Array(m).fill(0);
-    const q = Array(n).fill(0);
-    p[r] = Math.max(0, p_r);
-    p[s] = Math.max(0, p_s);
-    q[c] = Math.max(0, q_c);
-    q[d] = Math.max(0, q_d);
+  // Regra de desempate:
+  // - Se c e d são indiferentes, usa exatamente q_c e q_d (normalizados).
+  // - Caso contrário, distribui uniformemente entre todas as indiferentes.
+  const q = Array(n).fill(0);
+  const parIndiferente = indiferentes.includes(c) && indiferentes.includes(d);
 
-    // Normalização leve (se somar ligeiramente fora de 1)
-    const sp = p.reduce((a, b) => a + b, 0);
-    const sq = q.reduce((a, b) => a + b, 0);
-    if (sp <= 1e-12 || sq <= 1e-12) return null;
-    for (let i = 0; i < m; i++) p[i] /= sp;
-    for (let j = 0; j < n; j++) q[j] /= sq;
+  if (parIndiferente) {
+    const sq = Math.max(0, q_c) + Math.max(0, q_d);
+    if (sq <= 1e-12) return null;
+    q[c] = Math.max(0, q_c) / sq;
+    q[d] = Math.max(0, q_d) / sq;
+  } else {
+    const peso = 1 / indiferentes.length;
+    for (const j of indiferentes) q[j] = peso;
+  }
 
-    return { p, q, v };
+  return { p, q, v };
 }
 
 /* Função para resolver estratégia mista via Programação Linear (simplex aproximado)
@@ -192,17 +195,12 @@ function resolverSimplex(A) {
 
   // Inicialização de Y
   let q = Array(n).fill(1/n);
-  let v = Infinity;
 
   // Iterações para ajuste de q
   for (let iter = 0; iter < 5000; iter++) {
     const payoffs = A.map(row => row.reduce((acc, val, j) => acc + val * q[j], 0));
-    const maxPayoff = Math.max(...payoffs);
-    if (maxPayoff < v) v = maxPayoff;
-
-    const worstRow = payoffs.indexOf(maxPayoff);
-    const grad = Array(n).fill(0);
-    for (let j = 0; j < n; j++) grad[j] = A[worstRow][j];
+    const worstRow = payoffs.indexOf(Math.max(...payoffs));
+    const grad = A[worstRow];
 
     const alpha = 0.01;
     q = q.map((val, j) => val - alpha * grad[j]);
@@ -211,12 +209,31 @@ function resolverSimplex(A) {
     q = q.map(val => val / sumQ);
   }
 
-  // Calcular p a partir dos payoffs contra q
+  // Payoffs finais contra q
   const payoffs = A.map(row => row.reduce((acc, val, j) => acc + val * q[j], 0));
-  const maxPayoff = Math.max(...payoffs);
-  const p = payoffs.map(val => (Math.abs(val - maxPayoff) < 1e-6 ? 1 : 0));
-  const sumP = p.reduce((a, b) => a + b, 0);
-  for (let i = 0; i < m; i++) p[i] /= sumP;
+
+  // Valor do jogo: média entre min e max payoff (evita sinal errado)
+  const v = 0.5 * (Math.min(...payoffs) + Math.max(...payoffs));
+
+  // Linhas quase indiferentes ao valor v entram no suporte
+  const tol = 1e-2;
+  let suporte = [];
+  for (let i = 0; i < m; i++) {
+    if (Math.abs(payoffs[i] - v) < tol) suporte.push(i);
+  }
+  if (suporte.length === 0) {
+    // fallback: pega todas as linhas
+    suporte = [...Array(m).keys()];
+  }
+
+  // Distribui probabilidade uniformemente entre as linhas do suporte
+  const p = Array(m).fill(0);
+  const peso = 1 / suporte.length;
+  for (const i of suporte) p[i] = peso;
+
+  // Normaliza q para garantir soma = 1
+  const sumQ = q.reduce((a, b) => a + b, 0);
+  q = q.map(val => val / sumQ);
 
   return { p, q, v };
 }
@@ -240,13 +257,16 @@ function estrategiasMistasGenerico(A) {
         }
     }
 
+    var suporteDuplo = false;
     // Caso geral: tenta suportes de tamanho 2
-    for (let r = 0; r < m; r++) {
-        for (let s = r + 1; s < m; s++) {
-            for (let c = 0; c < n; c++) {
-                for (let d = c + 1; d < n; d++) {
-                    const sol = resolverSuporteDuplo(A, r, s, c, d);
-                    if (sol) return sol;
+    if (suporteDuplo){
+        for (let r = 0; r < m; r++) {
+            for (let s = r + 1; s < m; s++) {
+                for (let c = 0; c < n; c++) {
+                    for (let d = c + 1; d < n; d++) {
+                        const sol = resolverSuporteDuplo(A, r, s, c, d);
+                        if (sol) return sol;
+                    }
                 }
             }
         }
